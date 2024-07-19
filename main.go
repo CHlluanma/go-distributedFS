@@ -21,12 +21,14 @@ func main() {
 	}
 	tr := p2p.NewTCPTransport(tcpOpts)
 
-	go func() {
-		msg := <-tr.Consume()
-		fmt.Printf("message: %+v", msg)
-	}()
+	fileServerOpts := FileServerOpts{
+		StorageRoot:       "3000_network",
+		PathTransformFunc: CASPathTransformFunc,
+		Transport:         tr,
+	}
 
-	if err := tr.ListenAndAccept(); err != nil {
+	s := NewFileServer(fileServerOpts)
+	if err := s.Start(); err != nil {
 		log.Fatal(err)
 	}
 

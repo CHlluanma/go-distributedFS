@@ -84,9 +84,14 @@ func NewStore(opts StoreOpts) *Store {
 
 func (s *Store) Has(key string) bool {
 	pathKey := s.PathTransform(key)
+	fullPathWithRoot := s.prefixWithRoot(pathKey.FullPath())
 
-	_, err := os.Stat(pathKey.FullPath())
+	_, err := os.Stat(fullPathWithRoot)
 	return !errors.Is(err, fs.ErrNotExist)
+}
+
+func (s *Store) Clear() error {
+	return os.RemoveAll(s.Root)
 }
 
 func (s *Store) Delete(key string) error {
@@ -96,8 +101,12 @@ func (s *Store) Delete(key string) error {
 		log.Printf("delete [%s] from disk", pathKey.Filename)
 	}()
 
-	firstPathNameWithRoot := prefixWithRoot(s, pathKey.FirstPathName())
+	firstPathNameWithRoot := s.prefixWithRoot(pathKey.FirstPathName())
 	return os.RemoveAll(firstPathNameWithRoot)
+}
+
+func (s *Store) Write(key string, r io.Reader) error {
+	return s.writeStream(key, r)
 }
 
 func (s *Store) Read(key string) (io.Reader, error) {
@@ -117,18 +126,18 @@ func (s *Store) Read(key string) (io.Reader, error) {
 
 func (s *Store) readStream(key string) (io.ReadCloser, error) {
 	pathKey := s.PathTransform(key)
-	fullPathWithRoot := prefixWithRoot(s, pathKey.FullPath())
+	fullPathWithRoot := s.prefixWithRoot(pathKey.FullPath())
 	return os.Open(fullPathWithRoot)
 }
 
 func (s *Store) writeStream(key string, r io.Reader) error {
 	pathKey := s.PathTransform(key)
-	pathNameWithRoot := prefixWithRoot(s, pathKey.PathName)
+	pathNameWithRoot := s.prefixWithRoot(pathKey.PathName)
 	if err := os.MkdirAll(pathNameWithRoot, os.ModePerm); err != nil {
 		return err
 	}
 
-	fullPathWithRoot := prefixWithRoot(s, pathKey.FullPath())
+	fullPathWithRoot := s.prefixWithRoot(pathKey.FullPath())
 	f, err := os.Create(fullPathWithRoot)
 	if err != nil {
 		return err
@@ -143,6 +152,6 @@ func (s *Store) writeStream(key string, r io.Reader) error {
 	return nil
 }
 
-func prefixWithRoot(s *Store, key string) string {
+func (s *Store) prefixWithRoot(key string) string {
 	return fmt.Sprintf("%s/%s", s.Root, key)
 }
